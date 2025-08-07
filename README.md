@@ -152,3 +152,5 @@ Este proyecto es de uso interno para Medirex.
 ---
 
 **¡Tu aplicación está lista para producción!** 🎉
+
+Ajuste
