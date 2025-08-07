@@ -11,5 +11,10 @@
         },
         "optimize-autoloader": true,
         "sort-packages": true
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "echo 'PHP application installed successfully'"
+        ]
     }
 }
