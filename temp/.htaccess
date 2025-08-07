@@ -1,0 +1,23 @@
+# Configuración para carpeta temporal - Permitir acceso solo a archivos generados
+<FilesMatch "\.(pdf|html)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
+
+# Configurar tipos MIME correctos
+AddType application/pdf .pdf
+AddType text/html .html
+
+# Prevenir acceso a archivos sensibles
+<FilesMatch "\.(php|log|txt|json|lock)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Headers de seguridad para archivos descargables
+<FilesMatch "\.pdf$">
+    Header set Content-Disposition "attachment"
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+</FilesMatch> 

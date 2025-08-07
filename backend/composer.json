@@ -1,0 +1,13 @@
+{
+    "require": {
+        "php": "^8.1",
+        "phpoffice/phpspreadsheet": "^4.4",
+        "setasign/fpdi": "^2.6",
+        "setasign/fpdf": "^1.8"
+    },
+    "config": {
+        "platform": {
+            "php": "8.1.0"
+        }
+    }
+}

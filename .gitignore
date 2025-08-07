@@ -1,0 +1,35 @@
+# Archivos temporales
+temp/*.pdf
+temp/*.html
+backend/temp/*.pdf
+backend/temp/*.html
+
+# Logs
+*.log
+logs/
+
+# Archivos de configuración local
+.env
+config.local.php
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Composer (solo en desarrollo)
+# vendor/ (descomenta si no quieres subir vendor)
+
+# Archivos de backup
+*.bak
+*.backup
+*~
+
+# Archivos de cache
+cache/
+*.cache

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Ofertas - Medirex</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <h1>Generador de Ofertas</h1>
+                <p class="subtitle">Medirex - Soluciones Médicas Innovadoras</p>
+            </div>
+            
+            <!-- Wizard Steps -->
+            <div class="wizard-steps">
+                <div class="step" id="step1" data-step="1">
+                    <div class="step-number">1</div>
+                    <div class="step-label">Datos del Cliente</div>
+                </div>
+                <div class="step" id="step2" data-step="2">
+                    <div class="step-number">2</div>
+                    <div class="step-label">Productos</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- Step 1: Datos del Cliente -->
+            <div class="step-content" id="step1-content">
+                <div class="form-container">
+                    <h2>Información del Cliente</h2>
+                    
+                    <form id="cliente-form">
+                        <div class="form-group">
+                            <label for="cliente">Nombre del Cliente *</label>
+                            <input type="text" id="cliente" name="cliente" required 
+                                   placeholder="Buscar cliente..." autocomplete="off">
+                            <div class="autocomplete-results" id="cliente-results"></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="nit">NIT</label>
+                            <input type="text" id="nit" name="nit" readonly>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="dirigido_a">Dirigido a *</label>
+                            <input type="text" id="dirigido_a" name="dirigido_a" required 
+                                   placeholder="Nombre del contacto">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="contacto_cargo">Cargo del Contacto *</label>
+                            <input type="text" id="contacto_cargo" name="contacto_cargo" required 
+                                   placeholder="Cargo del contacto">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ciudad">Ciudad *</label>
+                            <select id="ciudad" name="ciudad" required>
+                                <option value="">Seleccionar ciudad</option>
+                                <option value="Bogotá">Bogotá</option>
+                                <option value="Medellín">Medellín</option>
+                                <option value="Cali">Cali</option>
+                                <option value="Barranquilla">Barranquilla</option>
+                                <option value="Cartagena">Cartagena</option>
+                                <option value="Bucaramanga">Bucaramanga</option>
+                                <option value="Pereira">Pereira</option>
+                                <option value="Manizales">Manizales</option>
+                                <option value="Ibagué">Ibagué</option>
+                                <option value="Villavicencio">Villavicencio</option>
+                                <option value="Neiva">Neiva</option>
+                                <option value="Pasto">Pasto</option>
+                                <option value="Montería">Montería</option>
+                                <option value="Valledupar">Valledupar</option>
+                                <option value="Popayán">Popayán</option>
+                                <option value="Tunja">Tunja</option>
+                                <option value="Florencia">Florencia</option>
+                                <option value="Armenia">Armenia</option>
+                                <option value="Sincelejo">Sincelejo</option>
+                            </select>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="fecha_presentacion">Fecha de Presentación</label>
+                                <input type="date" id="fecha_presentacion" name="fecha_presentacion" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label for="fecha_vigencia">Fecha de Vigencia</label>
+                                <input type="date" id="fecha_vigencia" name="fecha_vigencia" readonly>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="territorio">Territorio *</label>
+                            <select id="territorio" name="territorio" required>
+                                <option value="">Seleccionar territorio</option>
+                                <option value="Norte">Norte</option>
+                                <option value="Sur">Sur</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Firma del Gerente *</label>
+                            <div class="radio-group">
+                                <label class="radio-option">
+                                    <input type="radio" name="firma_gerente" value="Jennifer Fonnegra" required>
+                                    <span class="radio-custom"></span>
+                                    Jennifer Fonnegra
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="firma_gerente" value="Tatiana Ferreira" required>
+                                    <span class="radio-custom"></span>
+                                    Tatiana Ferreira
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary" onclick="nextStep()">
+                                Siguiente
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Step 2: Productos -->
+            <div class="step-content" id="step2-content" style="display: none;">
+                <div class="form-container">
+                    <h2>Selección de Productos</h2>
+                    
+                    <form id="productos-form">
+                        <div class="form-group">
+                            <label for="tipo_precio">Lista de Precio *</label>
+                            <div class="radio-group">
+                                <label class="radio-option">
+                                    <input type="radio" name="tipo_precio" value="full" required onchange="cargarProductos()">
+                                    <span class="radio-custom"></span>
+                                    Precio Full
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="tipo_precio" value="especial" required onchange="cargarProductos()">
+                                    <span class="radio-custom"></span>
+                                    Precios Especiales
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="grupo_articulo">Grupo de Artículo *</label>
+                            <select id="grupo_articulo" name="grupo_articulo" required onchange="cargarPortafolio()">
+                                <option value="">Seleccionar grupo</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="portafolio">Portafolio *</label>
+                            <select id="portafolio" name="portafolio" required onchange="cargarProductos()">
+                                <option value="">Seleccionar portafolio</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Productos Seleccionados</label>
+                            <div id="productos-container" class="productos-container">
+                                <!-- Los productos se cargarán dinámicamente aquí -->
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-secondary" onclick="prevStep()">
+                                Volver
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick="generarPDF()">
+                                Generar Oferta
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </main>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay" style="display: none;">
+            <div class="loading-spinner"></div>
+            <p>Procesando...</p>
+        </div>
+
+        <!-- Preview Modal -->
+        <div id="preview-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Vista Previa de la Oferta</h3>
+                    <span class="close" onclick="closePreview()">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <iframe id="pdf-preview" src="" width="100%" height="500px"></iframe>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closePreview()">Cerrar</button>
+                    <button class="btn btn-primary" onclick="descargarPDF()">Descargar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/excel-reader.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html> 
