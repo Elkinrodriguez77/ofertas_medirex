@@ -7,9 +7,10 @@ RUN apt-get update && apt-get install -y \
     libpng-dev \
     libonig-dev \
     libxml2-dev \
+    libzip-dev \
     zip \
     unzip \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd zip
 
 # Instalar Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -19,6 +20,9 @@ WORKDIR /var/www/html
 
 # Copiar archivos del proyecto
 COPY . .
+
+# Configurar Composer para ejecutar como superuser
+ENV COMPOSER_ALLOW_SUPERUSER=1
 
 # Instalar dependencias de Composer
 RUN composer install --no-dev --optimize-autoloader
