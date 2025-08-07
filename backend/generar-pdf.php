@@ -65,8 +65,8 @@ try {
     
     try {
         // Verificar si FPDI está disponible
-        if (file_exists('vendor/autoload.php')) {
-            require_once 'vendor/autoload.php';
+        if (file_exists('../vendor/autoload.php')) {
+            require_once '../vendor/autoload.php';
             
             if (class_exists('setasign\Fpdi\Fpdi') && class_exists('FPDF')) {
                 // 1. Buscar la descripción del grupo y portafolio seleccionados en el Excel de categorías

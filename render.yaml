@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: medirex-app
+    env: php
+    buildCommand: composer install --no-dev --optimize-autoloader
+    startCommand: php -S 0.0.0.0:$PORT -t .
+    envVars:
+      - key: PHP_VERSION
+        value: 8.1.0
