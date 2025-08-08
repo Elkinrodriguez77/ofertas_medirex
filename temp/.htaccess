@@ -15,8 +15,8 @@ AddType text/html .html
 </FilesMatch>
 
 # Headers de seguridad para archivos descargables
+# Solo aplicar Content-Disposition attachment si se solicita específicamente
 <FilesMatch "\.pdf$">
-    Header set Content-Disposition "attachment"
     Header set Cache-Control "no-cache, no-store, must-revalidate"
     Header set Pragma "no-cache"
     Header set Expires "0"

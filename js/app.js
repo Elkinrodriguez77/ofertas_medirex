@@ -408,19 +408,41 @@ async function generarPDF() {
         
         // Datos de productos (step 2)
         const productosSeleccionados = [];
-        document.querySelectorAll('.producto-item').forEach(item => {
-            const descripcion = item.querySelector('h4').textContent;
-            const idArticulo = descripcion.split('ID:')[1]?.trim() || 'N/A';
+        document.querySelectorAll('.producto-item').forEach((item, index) => {
             const cantidad = item.querySelector('input[type="number"]').value;
             
-            // Buscar el producto en la lista de productos cargados
-            const producto = productos.find(p => p.id_articulo === idArticulo);
+            // Usar el índice para obtener el producto correcto de la lista
+            const producto = productos[index];
             
-            productosSeleccionados.push({
-                id_articulo: idArticulo,
-                descripcion: producto ? producto.descripcion : descripcion,
-                cantidad: cantidad
-            });
+            if (producto) {
+                // Calcular precios totales por cantidad
+                // Remover comas antes de convertir a número
+                const precioUnitario = parseFloat((producto.precio || '0').replace(/,/g, ''));
+                const precioConIvaUnitario = parseFloat((producto.precio_con_iva || '0').replace(/,/g, ''));
+                const cantidadNum = parseInt(cantidad || 1);
+                
+                const precioTotal = precioUnitario * cantidadNum;
+                const precioConIvaTotal = precioConIvaUnitario * cantidadNum;
+                
+                console.log('Cálculo de precios:', {
+                    id: producto.id_articulo,
+                    precioUnitario: producto.precio,
+                    precioUnitarioLimpio: precioUnitario,
+                    cantidad: cantidadNum,
+                    precioTotal: precioTotal,
+                    precioConIvaTotal: precioConIvaTotal
+                });
+                
+                productosSeleccionados.push({
+                    id_articulo: producto.id_articulo || 'N/A',
+                    descripcion: producto.descripcion || 'Sin descripción',
+                    cantidad: cantidad,
+                    precio_unitario: producto.precio || '0',
+                    precio_con_iva_unitario: producto.precio_con_iva || '0',
+                    precio_total: precioTotal.toString(),
+                    precio_con_iva_total: precioConIvaTotal.toString()
+                });
+            }
         });
         
         formData.append('productos', JSON.stringify(productosSeleccionados));
@@ -470,6 +492,17 @@ function showPreview(url) {
         modalTitle.textContent = isPDF ? 'Vista Previa del PDF' : 'Vista Previa de la Oferta';
     }
     
+    // Agregar manejo de errores para el iframe
+    iframe.onerror = function() {
+        console.error('Error al cargar la vista previa:', url);
+        showNotification('Error al cargar la vista previa. Intenta descargar el archivo directamente.', 'error');
+    };
+    
+    iframe.onload = function() {
+        console.log('Vista previa cargada exitosamente:', url);
+    };
+    
+    console.log('Intentando cargar vista previa:', url);
     iframe.src = url;
     modal.style.display = 'flex';
 }
@@ -483,13 +516,23 @@ function closePreview() {
 
 function descargarPDF() {
     const iframe = document.getElementById('pdf-preview');
+    const url = iframe.src;
+    
+    if (!url) {
+        showNotification('No hay archivo para descargar', 'error');
+        return;
+    }
+    
+    // Extraer el nombre del archivo de la URL
+    const urlParts = url.split('/');
+    const filename = urlParts[urlParts.length - 1];
+    
+    // Usar el endpoint de descarga
+    const downloadUrl = `backend/descargar-pdf.php?file=${encodeURIComponent(filename)}`;
+    
     const link = document.createElement('a');
-    link.href = iframe.src;
-    
-    // Determinar el nombre del archivo según la extensión
-    const isPDF = iframe.src.toLowerCase().endsWith('.pdf');
-    link.download = isPDF ? 'oferta-medirex.pdf' : 'oferta-medirex.html';
-    
+    link.href = downloadUrl;
+    link.download = filename;
     link.click();
 }
 

@@ -44,7 +44,7 @@ try {
     }
     
     // Ruta a la plantilla PDF
-    $plantillaPDF = '../Recursos/Plantilla_pdf.pdf';
+    $plantillaPDF = '../Recursos/Plantilla_pdf_2.pdf';
     
     if (!file_exists($plantillaPDF)) {
         throw new Exception('Plantilla PDF no encontrada en: ' . $plantillaPDF);
@@ -110,7 +110,26 @@ try {
     }
     
     // URL del archivo generado
-    $pdfUrl = 'http://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['REQUEST_URI']) . '/' . $filepath;
+    // Usar HTTPS si está disponible, sino HTTP
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'];
+    $basePath = dirname($_SERVER['REQUEST_URI']);
+    
+    // En Render.com, asegurar que la URL sea correcta
+    if (strpos($host, 'render.com') !== false || strpos($host, 'onrender.com') !== false) {
+        // Para Render.com, usar la URL completa
+        $pdfUrl = $protocol . '://' . $host . $basePath . '/' . $filepath;
+    } else {
+        // Para otros entornos
+        $pdfUrl = $protocol . '://' . $host . $basePath . '/' . $filepath;
+    }
+    
+    // Debug: Log de la URL generada
+    error_log("URL del PDF generada: " . $pdfUrl);
+    error_log("Protocolo: " . $protocol);
+    error_log("Host: " . $host);
+    error_log("BasePath: " . $basePath);
+    error_log("FilePath: " . $filepath);
     
     echo json_encode([
         'success' => true,
@@ -132,6 +151,10 @@ function generarPDFConPlantilla($plantillaPath, $datos, $outputPath) {
     // Crear nuevo PDF
     $pdf = new \setasign\Fpdi\Fpdi();
     
+    // Configurar codificación UTF-8 para caracteres especiales
+    $pdf->SetAutoPageBreak(true, 10);
+    $pdf->SetMargins(10, 10, 10);
+    
     // Agregar la plantilla
     $pageCount = $pdf->setSourceFile($plantillaPath);
     
@@ -142,36 +165,47 @@ function generarPDFConPlantilla($plantillaPath, $datos, $outputPath) {
         $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
         $pdf->useTemplate($template);
         
-        // Configurar fuente
+        // Configurar fuente con soporte UTF-8
         $pdf->SetFont('Arial', '', 10);
+        $pdf->SetTextColor(0, 0, 0);
         
-        // Mapeo de campos a reemplazar con posiciones aproximadas
-        $campos = [
-            '{{cliente}}' => ['valor' => $datos['cliente'], 'x' => 50, 'y' => 30],
-            '{{nit}}' => ['valor' => $datos['nit'], 'x' => 50, 'y' => 40],
-            '{{dirigido_a}}' => ['valor' => $datos['dirigido_a'], 'x' => 50, 'y' => 50],
-            '{{contacto_cargo}}' => ['valor' => $datos['contacto_cargo'], 'x' => 50, 'y' => 60],
-            '{{ciudad}}' => ['valor' => $datos['ciudad'], 'x' => 50, 'y' => 120],
-            '{{fecha_presentacion}}' => ['valor' => $datos['fecha_presentacion'], 'x' => 50, 'y' => 80],
-            '{{fecha_vigencia}}' => ['valor' => $datos['fecha_vigencia'], 'x' => 50, 'y' => 90],
-            '{{territorio}}' => ['valor' => $datos['territorio'], 'x' => 50, 'y' => 100],
-            '{{firma_gerente}}' => ['valor' => $datos['firma_gerente'], 'x' => 50, 'y' => 200],
-            '{{cargo}}' => ['valor' => $datos['cargo'], 'x' => 50, 'y' => 210]
-        ];
+        // Configurar campos según la página
+        $campos = [];
         
-        // Si es la página 2, agregar los campos dinámicos de la página 2
-        if ($pageNo == 2) {
-            $campos['{{PORTAFOLIO}}'] = ['valor' => $datos['portafolio'], 'x' => 60, 'y' => 50];
-            $campos['{{grupo_articulo}}'] = ['valor' => $datos['grupo_articulo'], 'x' => 60, 'y' => 70];
-            $campos['{{descripcion_grupo_articulo}}'] = ['valor' => $datos['descripcion_grupo_articulo'], 'x' => 60, 'y' => 90];
+        if ($pageNo == 1) {
+            // PÁGINA 1: Solo datos del cliente y oferta
+            $campos = [
+                '{{cliente}}' => ['valor' => $datos['cliente'], 'x' => 40, 'y' => 21],
+                '{{nit}}' => ['valor' => $datos['nit'], 'x' => 40, 'y' => 25],
+                '{{dirigido_a}}' => ['valor' => $datos['dirigido_a'], 'x' => 40, 'y' => 29],
+                '{{contacto_cargo}}' => ['valor' => $datos['contacto_cargo'], 'x' => 40, 'y' => 33],
+                '{{ciudad}}' => ['valor' => $datos['ciudad'], 'x' => 40, 'y' => 37],
+                '{{fecha_presentacion}}' => ['valor' => $datos['fecha_presentacion'], 'x' => 180, 'y' => 21],
+                '{{fecha_vigencia}}' => ['valor' => $datos['fecha_vigencia'], 'x' => 180, 'y' => 26],
+                '{{territorio}}' => ['valor' => $datos['territorio'], 'x' => 40, 'y' => 41],
+                '{{firma_gerente}}' => ['valor' => $datos['firma_gerente'], 'x' => 8, 'y' => 151],
+                '{{cargo}}' => ['valor' => $datos['cargo'], 'x' => 8, 'y' => 155]
+            ];
+        } elseif ($pageNo == 2) {
+            // PÁGINA 2: Solo datos del portafolio y grupo (sin descripción, se calcula dinámicamente)
+            $campos = [
+                '{{PORTAFOLIO}}' => ['valor' => $datos['portafolio'], 'x' => 8, 'y' => 21, 'fuente' => 'Arial', 'tamaño' => 14, 'estilo' => 'B'],
+                '{{grupo_articulo}}' => ['valor' => $datos['grupo_articulo'], 'x' => 8, 'y' => 30, 'fuente' => 'Arial', 'tamaño' => 12, 'estilo' => 'B']
+            ];
         }
         
         // Escribir campos en el PDF
         escribirCamposEnPDF($pdf, $campos);
         
-        // Si es la página 2 o más, agregar tabla de productos
+        // Si es la página 2, agregar descripción y tabla de productos con paginación
         if ($pageNo == 2 && !empty($datos['productos'])) {
-            agregarTablaProductos($pdf, $datos['productos']);
+            // Agregar descripción en la primera página
+            $pdf->SetFont('Arial', '', 9);
+            $pdf->SetXY(8, 40);
+            $pdf->MultiCell(180, 4, utf8_decode($datos['descripcion_grupo_articulo'] ?? ''), 0, 'L');
+            
+            // Agregar tabla de productos con paginación
+            agregarTablaProductosConPaginacion($pdf, $datos['productos'], $datos);
         }
     }
     
@@ -183,41 +217,166 @@ function escribirCamposEnPDF($pdf, $campos) {
     // Escribir cada campo en su posición
     foreach ($campos as $campo => $info) {
         $pdf->SetXY($info['x'], $info['y']);
-        $pdf->Cell(100, 5, $info['valor'], 0, 0, 'L');
+        // Convertir caracteres especiales para FPDF
+        $texto = utf8_decode($info['valor']);
+        
+        // Configurar fuente según el campo
+        if (isset($info['fuente']) && isset($info['tamaño']) && isset($info['estilo'])) {
+            // Campo con configuración personalizada
+            $pdf->SetFont($info['fuente'], $info['estilo'], $info['tamaño']);
+        } elseif ($campo === '{{descripcion_grupo_articulo}}') {
+            // Descripción del grupo - MultiCell con fuente pequeña
+            $pdf->SetFont('Arial', '', 9);
+            // Limitar el texto si es muy largo (opcional)
+            if (strlen($texto) > 200) {
+                $texto = substr($texto, 0, 200) . '...';
+            }
+            $pdf->MultiCell(180, 4, $texto, 0, 'L'); // 180mm de ancho, 4mm de altura por línea
+            continue; // Saltar el Cell() de abajo
+        } else {
+            // Campos normales
+            $pdf->SetFont('Arial', '', 10);
+        }
+        
+        // Escribir el texto (excepto para descripción que usa MultiCell)
+        if ($campo !== '{{descripcion_grupo_articulo}}') {
+            $pdf->Cell(100, 5, $texto, 0, 0, 'L');
+        }
     }
 }
 
-function agregarTablaProductos($pdf, $productos) {
+function agregarTablaProductosConPaginacion($pdf, $productos, $datos) {
+    $totalProductos = count($productos);
+    $productosRestantes = $productos;
+    $pagina = 0;
+    
+    while (!empty($productosRestantes)) {
+        // Si no es la primera página, crear nueva página
+        if ($pagina > 0) {
+            $pdf->AddPage();
+        }
+        
+        // Calcular posición Y dinámica para la tabla
+        $yInicial = 49; // Posición base
+        
+        if ($pagina == 0) {
+            // Solo en la primera página calcular posición dinámica
+            $yInicial = calcularPosicionYTabla($pdf, $datos);
+        } else {
+            // En páginas adicionales, posición fija
+            $yInicial = 20;
+        }
+        
+        // Calcular cuántos productos caben en esta página
+        $productosDisponibles = calcularProductosDisponibles($pdf, $yInicial);
+        $productosEstaPagina = array_slice($productosRestantes, 0, $productosDisponibles);
+        
+        // Agregar tabla de productos para esta página
+        agregarTablaProductos($pdf, $productosEstaPagina, $pagina > 0, $yInicial);
+        
+        // Remover productos procesados
+        $productosRestantes = array_slice($productosRestantes, $productosDisponibles);
+        $pagina++;
+    }
+}
+
+function calcularPosicionYTabla($pdf, $datos) {
+    // Posición base después de los encabezados
+    $yBase = 49;
+    
+    // Calcular altura de la descripción
+    $descripcion = utf8_decode($datos['descripcion_grupo_articulo'] ?? '');
+    if (!empty($descripcion)) {
+        $pdf->SetFont('Arial', '', 9);
+        $pdf->SetXY(8, 40);
+        
+        // Obtener la posición Y después de escribir la descripción
+        $yAntes = $pdf->GetY();
+        $pdf->MultiCell(180, 4, $descripcion, 0, 'L');
+        $yDespues = $pdf->GetY();
+        
+        // Calcular altura de la descripción
+        $alturaDescripcion = $yDespues - 40;
+        
+        // Nueva posición Y = posición base + altura de descripción + 4 espacios
+        $yNueva = $yBase + $alturaDescripcion + 4;
+        
+        return $yNueva;
+    }
+    
+    return $yBase;
+}
+
+function calcularProductosDisponibles($pdf, $yInicial) {
+    $alturaPagina = 297; // Altura de página A4 en mm
+    $margenInferior = 20; // Margen inferior
+    $alturaFila = 8; // Altura de cada fila de producto
+    $alturaEncabezado = 8; // Altura del encabezado de la tabla
+    
+    // Espacio disponible = altura de página - posición inicial - margen inferior
+    $espacioDisponible = $alturaPagina - $yInicial - $margenInferior;
+    
+    // Número de filas que caben = espacio disponible / altura de fila
+    $filasDisponibles = floor($espacioDisponible / $alturaFila);
+    
+    // Restar 1 por el encabezado de la tabla
+    $productosDisponibles = max(1, $filasDisponibles - 1);
+    
+    return $productosDisponibles;
+}
+
+function agregarTablaProductos($pdf, $productos, $esPaginaAdicional = false, $yInicial = 49) {
     // Posición inicial para la tabla
-    $x = 20;
-    $y = 120; // Ajusta la posición inicial según tu plantilla
+    $x = 8;
+    $y = $yInicial;
     $lineHeight = 8;
     
     // Encabezados de la tabla
     $pdf->SetFont('Arial', 'B', 9);
     $pdf->SetXY($x, $y);
-    $pdf->Cell(30, $lineHeight, 'ID Artículo', 1, 0, 'C');
-    $pdf->Cell(80, $lineHeight, 'Descripción', 1, 0, 'C');
-    $pdf->Cell(20, $lineHeight, 'Cantidad', 1, 0, 'C');
-    $pdf->Cell(30, $lineHeight, 'Precio', 1, 0, 'C');
-    $pdf->Cell(30, $lineHeight, 'Precio con IVA', 1, 1, 'C');
+    $pdf->Cell(25, $lineHeight, utf8_decode('ID'), 1, 0, 'C');
+    $pdf->Cell(75, $lineHeight, utf8_decode('Descripción'), 1, 0, 'C');
+    $pdf->Cell(20, $lineHeight, utf8_decode('Cant.'), 1, 0, 'C');
+    $pdf->Cell(25, $lineHeight, utf8_decode('Total'), 1, 0, 'C');
+    $pdf->Cell(25, $lineHeight, utf8_decode('Total+IVA'), 1, 1, 'C');
     
     $y += $lineHeight;
     
     // Datos de productos
     $pdf->SetFont('Arial', '', 8);
     foreach ($productos as $producto) {
-        if ($y > 250) { // Si se acerca al final de la página, crear nueva página
-            $pdf->AddPage();
-            $y = 20;
+        $pdf->SetXY($x, $y);
+        $pdf->Cell(25, $lineHeight, utf8_decode($producto['id_articulo'] ?? 'N/A'), 1, 0, 'C');
+        $pdf->Cell(75, $lineHeight, utf8_decode(substr($producto['descripcion'] ?? '', 0, 35)), 1, 0, 'L');
+        $pdf->Cell(20, $lineHeight, $producto['cantidad'] ?? '0', 1, 0, 'C');
+        
+        // Usar precios totales si están disponibles, sino calcular
+        $precioTotal = $producto['precio_total'] ?? 0;
+        $precioConIvaTotal = $producto['precio_con_iva_total'] ?? 0;
+        
+        // Debug: Log de los valores recibidos
+        error_log("Producto: " . ($producto['id_articulo'] ?? 'N/A'));
+        error_log("Precio total recibido: " . $precioTotal);
+        error_log("Precio con IVA total recibido: " . $precioConIvaTotal);
+        
+        // Si no hay precios totales o son muy pequeños, calcularlos
+        if (!$precioTotal || $precioTotal < 1000 || !$precioConIvaTotal || $precioConIvaTotal < 1000) {
+            $precioUnitario = floatval(str_replace(',', '', $producto['precio'] ?? 0));
+            $precioConIvaUnitario = floatval(str_replace(',', '', $producto['precio_con_iva'] ?? 0));
+            $cantidad = intval($producto['cantidad'] ?? 1);
+            
+            $precioTotal = $precioUnitario * $cantidad;
+            $precioConIvaTotal = $precioConIvaUnitario * $cantidad;
+            
+            error_log("Calculando: Unitario=$precioUnitario, Cantidad=$cantidad, Total=$precioTotal");
         }
         
-        $pdf->SetXY($x, $y);
-        $pdf->Cell(30, $lineHeight, $producto['id_articulo'], 1, 0, 'L');
-        $pdf->Cell(80, $lineHeight, substr($producto['descripcion'], 0, 40), 1, 0, 'L');
-        $pdf->Cell(20, $lineHeight, $producto['cantidad'], 1, 0, 'C');
-        $pdf->Cell(30, $lineHeight, '$' . number_format(str_replace(',', '', $producto['precio'] ?? 0)), 1, 0, 'R');
-        $pdf->Cell(30, $lineHeight, '$' . number_format(str_replace(',', '', $producto['precio_con_iva'] ?? 0)), 1, 1, 'R');
+        // Asegurar que los valores sean numéricos
+        $precioTotal = floatval($precioTotal);
+        $precioConIvaTotal = floatval($precioConIvaTotal);
+        
+        $pdf->Cell(25, $lineHeight, '$' . number_format($precioTotal), 1, 0, 'R');
+        $pdf->Cell(25, $lineHeight, '$' . number_format($precioConIvaTotal), 1, 1, 'R');
         
         $y += $lineHeight;
     }
@@ -232,7 +391,7 @@ function generarHTMLOferta($datos) {
     <title>Oferta Medirex</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: Montserrat, sans-serif;
             margin: 0;
             padding: 20px;
             background: white;
