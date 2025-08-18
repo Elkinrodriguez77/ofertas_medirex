@@ -637,8 +637,22 @@ function generarHTMLOferta($datos) {
             background-color: #1B365D;
             color: white;
         }
+        .productos-table thead tr {
+            box-shadow: 0 2px 0 rgba(0,0,0,0.05);
+        }
         .productos-table tr:nth-child(even) {
             background-color: #f9f9f9;
+        }
+        h1 { margin-top: 28px; font-size: 22px; color: #1B365D; }
+        h2 { margin-top: 16px; font-size: 18px; color: #2B5C9A; }
+        h3 { margin-top: 10px; font-size: 16px; color: #6DC067; }
+        .card {
+            border: 1px solid #e6e6e6;
+            border-radius: 10px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+            padding: 16px;
+            margin: 12px 0 20px;
+            background: #fff;
         }
         .footer {
             margin-top: 40px;
@@ -755,8 +769,19 @@ function generarHTMLOferta($datos) {
         // ignorar errores de descripción
     }
 
+    // Agrupar productos por Portafolio > Grupo
+    $productos = $datos['productos'] ?? [];
+    $agrupados = [];
+    foreach ($productos as $p) {
+        $pf = $p['portafolio'] ?? 'Otros';
+        $gr = $p['grupo'] ?? 'Sin grupo';
+        if (!isset($agrupados[$pf])) $agrupados[$pf] = [];
+        if (!isset($agrupados[$pf][$gr])) $agrupados[$pf][$gr] = [];
+        $agrupados[$pf][$gr][] = $p;
+    }
+
     foreach ($descripciones as $portafolio => $grupos) {
-        $html .= '<h1>' . htmlspecialchars($portafolio) . '</h1>';
+        $html .= '<div class="card">' . '<h1>' . htmlspecialchars($portafolio) . '</h1>';
         foreach ($grupos as $grupo => $espMap) {
             $html .= '<h2>' . htmlspecialchars($grupo) . '</h2>';
             foreach ($espMap as $esp => $desc) {
@@ -767,44 +792,45 @@ function generarHTMLOferta($datos) {
                     $html .= '<p>' . nl2br(htmlspecialchars($desc)) . '</p>';
                 }
             }
+            // Tabla específica para esta combinación Portafolio-Grupo
+            $html .= '<table class="productos-table"><thead><tr>'
+                . '<th>ID Artículo</th><th>Descripción</th><th>Cant.</th><th>Precio</th><th>IVA</th><th>Precio + IVA</th>'
+                . '</tr></thead><tbody>';
+            $filas = $agrupados[$portafolio][$grupo] ?? [];
+            $sumCant = 0; $sumTotal = 0.0; $sumTotalIva = 0.0;
+            foreach ($filas as $prod) {
+                $cant = intval($prod['cantidad'] ?? 1);
+                $pu = floatval(str_replace(',', '', $prod['precio_unitario'] ?? ($prod['precio'] ?? '0')));
+                $pui = floatval(str_replace(',', '', $prod['precio_con_iva_unitario'] ?? ($prod['precio_con_iva'] ?? '0')));
+                $pt = isset($prod['precio_total']) ? floatval(str_replace(',', '', $prod['precio_total'])) : ($pu * $cant);
+                $pti = isset($prod['precio_con_iva_total']) ? floatval(str_replace(',', '', $prod['precio_con_iva_total'])) : ($pui * $cant);
+                $sumCant += $cant; $sumTotal += $pt; $sumTotalIva += $pti;
+                $html .= '<tr>'
+                    . '<td>' . htmlspecialchars($prod['id_articulo'] ?? '') . '</td>'
+                    . '<td>' . htmlspecialchars($prod['descripcion'] ?? '') . '</td>'
+                    . '<td style="text-align:center;">' . $cant . '</td>'
+                    . '<td style="text-align:right;">$' . number_format($pu) . '</td>'
+                    . '<td style="text-align:center;">' . (isset($prod['iva']) ? (is_numeric($prod['iva']) ? (intval(round(floatval($prod['iva']) * 100)) . '%') : htmlspecialchars($prod['iva'])) : '0%') . '</td>'
+                    . '<td style="text-align:right;">$' . number_format($pui) . '</td>'
+                . '</tr>';
+            }
+            if (empty($filas)) {
+                $html .= '<tr><td colspan="6" style="text-align:center;color:#666;">No hay productos para esta selección</td></tr>';
+            } else {
+                $html .= '<tr class="totals-row" style="font-weight:600;background:#f3f6fb;">'
+                    . '<td colspan="2">Totales</td>'
+                    . '<td style="text-align:center;">' . $sumCant . '</td>'
+                    . '<td style="text-align:right;">$' . number_format($sumTotal) . '</td>'
+                    . '<td></td>'
+                    . '<td style="text-align:right;">$' . number_format($sumTotalIva) . '</td>'
+                . '</tr>';
+            }
+            $html .= '</tbody></table>';
         }
-    }
-
-    $html .= '
-        <h2>Productos Cotizados</h2>
-        <table class="productos-table">
-            <thead>
-                <tr>
-                    <th>ID Artículo</th>
-                    <th>Descripción</th>
-                    <th>Cant.</th>
-                    <th>Precio</th>
-                    <th>IVA</th>
-                    <th>Precio + IVA</th>
-                </tr>
-            </thead>
-            <tbody>';
-    
-    foreach ($datos['productos'] as $producto) {
-        $html .= '
-                <tr>
-                    <td>' . htmlspecialchars($producto['id_articulo']) . '</td>
-                    <td>' . htmlspecialchars($producto['descripcion']) . '</td>
-                    <td style="text-align:center;">' . htmlspecialchars($producto['cantidad']) . '</td>
-                    <td style="text-align:right;">$' . number_format(floatval(str_replace(',', '', $producto['precio_unitario'] ?? '0'))) . '</td>
-                    <td style="text-align:center;">' . (isset($producto['iva']) ? (is_numeric($producto['iva']) ? (intval(round(floatval($producto['iva']) * 100)) . '%') : htmlspecialchars($producto['iva'])) : '0%') . '</td>
-                    <td style="text-align:right;">$' . number_format(floatval(str_replace(',', '', $producto['precio_con_iva_unitario'] ?? '0'))) . '</td>
-                </tr>';
+        $html .= '</div>';
     }
     
     $html .= '
-            </tbody>
-        </table>
-    </div>
-    
-    <div class="footer">
-        <p><strong>Vigencia de la oferta:</strong> ' . $datos['fecha_vigencia'] . '</p>
-        <p><strong>Territorio:</strong> ' . htmlspecialchars($datos['territorio']) . '</p>
     </div>
     
     <div class="firma">

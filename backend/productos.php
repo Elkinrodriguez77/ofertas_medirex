@@ -109,7 +109,9 @@ if ($tipo === 'especial') {
                         'descripcion' => isset($fila['D']) ? trim($fila['D']) : '',
                         'precio' => number_format($precio, 0, '.', ','),
                         'precio_con_iva' => number_format($precio, 0, '.', ','),
-                        'iva' => 0
+                        'iva' => 0,
+                        'grupo' => $grupoFila,
+                        'portafolio' => $portafolioFila
                     ];
                 }
             }
@@ -163,7 +165,9 @@ if ($tipo === 'especial') {
                         'descripcion' => isset($fila['B']) ? trim($fila['B']) : '',
                         'precio' => number_format($precioBase, 0, '.', ','),
                         'precio_con_iva' => number_format($precioConIva, 0, '.', ','),
-                        'iva' => $iva
+                        'iva' => $iva,
+                        'grupo' => $grupoFila,
+                        'portafolio' => $portafolioFila
                     ];
                 }
             }

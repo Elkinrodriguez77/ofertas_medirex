@@ -488,6 +488,8 @@ async function generarPDF() {
                     descripcion: producto.descripcion || 'Sin descripción',
                     cantidad: cantidad,
                     iva: (typeof producto.iva !== 'undefined' ? producto.iva : 0),
+                    grupo: producto.grupo || '',
+                    portafolio: producto.portafolio || '',
                     precio_unitario: producto.precio || '0',
                     precio_con_iva_unitario: producto.precio_con_iva || '0',
                     precio_total: precioTotal.toString(),
