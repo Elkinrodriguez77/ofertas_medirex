@@ -9,9 +9,20 @@ require_once __DIR__ . '/../vendor/autoload.php';
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 $tipo = isset($_GET['tipo']) ? trim($_GET['tipo']) : 'full';
-$grupo = isset($_GET['grupo']) ? trim($_GET['grupo']) : '';
-$portafolio = isset($_GET['portafolio']) ? trim($_GET['portafolio']) : '';
+
+// Soporte para multiselección (coma-separado). Mantener compat con parámetros antiguos
+$gruposParam = isset($_GET['grupos']) ? trim($_GET['grupos']) : '';
+$portafoliosParam = isset($_GET['portafolios']) ? trim($_GET['portafolios']) : '';
+$especialidadesParam = isset($_GET['especialidades']) ? trim($_GET['especialidades']) : '';
+
+$grupoLegacy = isset($_GET['grupo']) ? trim($_GET['grupo']) : '';
+$portafolioLegacy = isset($_GET['portafolio']) ? trim($_GET['portafolio']) : '';
 $nit = isset($_GET['nit']) ? trim($_GET['nit']) : '';
+
+// Normalizar a arrays
+$selectedGrupos = array_values(array_filter(array_map('trim', explode(',', $gruposParam ?: $grupoLegacy)), fn($v) => $v !== ''));
+$selectedPortafolios = array_values(array_filter(array_map('trim', explode(',', $portafoliosParam ?: $portafolioLegacy)), fn($v) => $v !== ''));
+$selectedEspecialidades = array_values(array_filter(array_map('trim', explode(',', $especialidadesParam)), fn($v) => $v !== ''));
 
 function normalizar_nit($nit) {
     // Quitar puntos, guiones, espacios y ceros a la izquierda
@@ -22,14 +33,58 @@ function normalizar_nit($nit) {
 
 $productos = [];
 
-if (!$grupo || !$portafolio || ($tipo === 'especial' && !$nit)) {
+if (empty($selectedGrupos) || empty($selectedPortafolios) || ($tipo === 'especial' && !$nit)) {
     echo json_encode([
         'success' => false,
         'productos' => [],
-        'message' => 'Faltan parámetros de grupo, portafolio o NIT.'
+        'message' => 'Faltan parámetros: al menos un grupo, un portafolio o NIT (para precios especiales).'
     ]);
     exit;
 }
+
+// Construir conjunto de pares (grupo, portafolio) válidos según el árbol y especialidades
+function construirParesValidos($selectedGrupos, $selectedPortafolios, $selectedEspecialidades) {
+    $paresValidos = [];
+    $archivoCategorias = __DIR__ . '/../Recursos/Listado_Categorias_Y_Otros.xlsx';
+    if (file_exists($archivoCategorias)) {
+        try {
+            $readerCat = IOFactory::createReader('Xlsx');
+            $readerCat->setReadDataOnly(true);
+            $spreadsheetCat = $readerCat->load($archivoCategorias);
+            $hojaCat = $spreadsheetCat->getActiveSheet();
+            $rowsCat = $hojaCat->toArray(null, true, true, true);
+            foreach ($rowsCat as $i => $filaCat) {
+                if ($i == 1) continue; // encabezados
+                $grupoFilaCat = isset($filaCat['A']) ? trim($filaCat['A']) : '';
+                $portafolioFilaCat = isset($filaCat['B']) ? trim($filaCat['B']) : '';
+                $especialidadFilaCat = isset($filaCat['C']) ? trim($filaCat['C']) : '';
+                if ($grupoFilaCat === '' || $portafolioFilaCat === '') continue;
+                if (!in_array($grupoFilaCat, $selectedGrupos, true)) continue;
+                if (!in_array($portafolioFilaCat, $selectedPortafolios, true)) continue;
+                if (!empty($selectedEspecialidades) && $especialidadFilaCat !== '' && !in_array($especialidadFilaCat, $selectedEspecialidades, true)) continue;
+                $clave = $grupoFilaCat . '||' . $portafolioFilaCat;
+                $paresValidos[$clave] = true;
+            }
+        } catch (Exception $e) {
+            // Si falla la lectura, permitir al menos la combinación básica grupo+portafolio
+            foreach ($selectedGrupos as $g) {
+                foreach ($selectedPortafolios as $p) {
+                    $paresValidos[$g . '||' . $p] = true;
+                }
+            }
+        }
+    } else {
+        // Si no existe el archivo, permitir combinaciones directas
+        foreach ($selectedGrupos as $g) {
+            foreach ($selectedPortafolios as $p) {
+                $paresValidos[$g . '||' . $p] = true;
+            }
+        }
+    }
+    return $paresValidos;
+}
+
+$paresValidos = construirParesValidos($selectedGrupos, $selectedPortafolios, $selectedEspecialidades);
 
 if ($tipo === 'especial') {
     $archivo = __DIR__ . '/../Recursos/Listado_Precios_Especiales.xlsx';
@@ -46,7 +101,8 @@ if ($tipo === 'especial') {
                 $grupoFila = isset($fila['I']) ? trim($fila['I']) : '';
                 $portafolioFila = isset($fila['G']) ? trim($fila['G']) : '';
                 $nitFila = isset($fila['J']) ? normalizar_nit($fila['J']) : '';
-                if ($grupoFila === $grupo && $portafolioFila === $portafolio && $nitFila === $nit_normalizado) {
+                $clave = $grupoFila . '||' . $portafolioFila;
+                if (isset($paresValidos[$clave]) && $nitFila === $nit_normalizado) {
                     $precio = isset($fila['F']) ? floatval($fila['F']) : 0;
                     $productos[] = [
                         'id_articulo' => isset($fila['C']) ? trim($fila['C']) : '',
@@ -94,7 +150,8 @@ if ($tipo === 'especial') {
                 if ($i == 1) continue; // Saltar encabezados
                 $grupoFila = isset($fila['E']) ? trim($fila['E']) : '';
                 $portafolioFila = isset($fila['G']) ? trim($fila['G']) : '';
-                if ($grupoFila === $grupo && $portafolioFila === $portafolio) {
+                $clave = $grupoFila . '||' . $portafolioFila;
+                if (isset($paresValidos[$clave])) {
                     $precioBase = isset($fila['D']) ? floatval($fila['D']) : 0;
                     $iva = isset($fila['F']) ? floatval($fila['F']) : 0;
                     $precioConIva = $precioBase;

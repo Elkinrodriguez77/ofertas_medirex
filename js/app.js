@@ -4,6 +4,7 @@ let clientes = [];
 let productos = [];
 let gruposArticulos = [];
 let portafolios = [];
+let especialidades = [];
 
 // Inicialización cuando se carga la página
 document.addEventListener('DOMContentLoaded', function() {
@@ -254,9 +255,13 @@ async function cargarGruposArticulos() {
         
         if (data.success) {
             gruposArticulos = data.grupos;
-            populateGruposArticulos();
-            console.log(`Grupos cargados: ${gruposArticulos.length}`);
-            showNotification(`Grupos cargados: ${gruposArticulos.length} categorías`, 'success');
+            if (Array.isArray(gruposArticulos)) {
+                populatePortafoliosInicial();
+                console.log(`Grupos cargados: ${gruposArticulos.length}`);
+                showNotification(`Categorías cargadas: ${gruposArticulos.length}`, 'success');
+            } else {
+                showNotification('Datos de categorías inválidos', 'error');
+            }
         } else {
             showNotification('Error al cargar grupos de artículos: ' + data.message, 'error');
         }
@@ -268,67 +273,112 @@ async function cargarGruposArticulos() {
     }
 }
 
-function populateGruposArticulos() {
-    const select = document.getElementById('grupo_articulo');
-    select.innerHTML = '<option value="">Seleccionar grupo</option>';
-    // Obtener grupos únicos
-    const gruposUnicos = [...new Set(gruposArticulos.map(g => g.grupo))];
-    gruposUnicos.forEach(grupo => {
-        const option = document.createElement('option');
-        option.value = grupo;
-        option.textContent = grupo;
-        select.appendChild(option);
+function populatePortafoliosInicial() {
+    const container = document.getElementById('portafolios');
+    if (!container) return;
+    container.innerHTML = '';
+    const portafoliosUnicos = [...new Set(gruposArticulos.map(g => g.portafolio).filter(Boolean))].sort();
+    portafoliosUnicos.forEach(p => {
+        const wrapper = document.createElement('label');
+        wrapper.className = 'checkbox-item';
+        wrapper.innerHTML = `<input type="checkbox" value="${p}" onchange="onPortafoliosChange()"><span>${p}</span>`;
+        container.appendChild(wrapper);
     });
 }
 
-async function cargarPortafolio() {
-    const grupoSeleccionado = document.getElementById('grupo_articulo').value;
-    if (!grupoSeleccionado) {
-        populatePortafolios([]);
-        return;
+function onPortafoliosChange() {
+    const portafoliosSel = Array.from(document.querySelectorAll('#portafolios input[type="checkbox"]:checked')).map(i => i.value);
+    const pfCount = document.getElementById('pf-count');
+    if (pfCount) pfCount.textContent = `${portafoliosSel.length} seleccionados`;
+    populateGruposByPortafolios(portafoliosSel);
+    populateEspecialidadesBy(portafoliosSel, []);
+}
+
+function populateGruposByPortafolios(portafoliosSel) {
+    const container = document.getElementById('grupos');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!portafoliosSel || portafoliosSel.length === 0) return;
+    const grupos = gruposArticulos
+        .filter(g => portafoliosSel.includes(g.portafolio))
+        .map(g => g.grupo)
+        .filter(Boolean);
+    const unicos = [...new Set(grupos)].sort();
+    unicos.forEach(grupo => {
+        const wrapper = document.createElement('label');
+        wrapper.className = 'checkbox-item';
+        wrapper.innerHTML = `<input type="checkbox" value="${grupo}" onchange="onGruposChange()"><span>${grupo}</span>`;
+        container.appendChild(wrapper);
+    });
+}
+
+function onGruposChange() {
+    const portafoliosSel = Array.from(document.querySelectorAll('#portafolios input[type="checkbox"]:checked')).map(i => i.value);
+    const gruposSel = Array.from(document.querySelectorAll('#grupos input[type="checkbox"]:checked')).map(i => i.value);
+    const grCount = document.getElementById('gr-count');
+    if (grCount) grCount.textContent = `${gruposSel.length} seleccionados`;
+    populateEspecialidadesBy(portafoliosSel, gruposSel);
+    // Si ya hay tipo de precio seleccionado, intentar cargar productos
+    const tipoPrecio = document.querySelector('input[name="tipo_precio"]:checked')?.value;
+    if (tipoPrecio && portafoliosSel.length > 0 && gruposSel.length > 0) {
+        cargarProductos();
     }
-    // Filtrar portafolios asociados a ese grupo (ignorando vacíos)
-    const portafoliosGrupo = gruposArticulos
-        .filter(g => g.grupo === grupoSeleccionado && g.portafolio && g.portafolio.trim() !== '')
-        .map(g => g.portafolio);
-    // Quitar duplicados
-    const portafoliosUnicos = [...new Set(portafoliosGrupo)];
-    populatePortafolios(portafoliosUnicos);
 }
 
-function populatePortafolios(portafoliosList) {
-    const select = document.getElementById('portafolio');
-    select.innerHTML = '<option value="">Seleccionar portafolio</option>';
-    (portafoliosList || []).forEach(portafolio => {
-        const option = document.createElement('option');
-        option.value = portafolio;
-        option.textContent = portafolio;
-        select.appendChild(option);
+function populateEspecialidadesBy(portafoliosSel, gruposSel) {
+    const container = document.getElementById('especialidades');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!portafoliosSel || portafoliosSel.length === 0 || !gruposSel || gruposSel.length === 0) return;
+    const esp = gruposArticulos
+        .filter(g => portafoliosSel.includes(g.portafolio) && gruposSel.includes(g.grupo))
+        .map(g => g.especialidad)
+        .filter(Boolean);
+    const unicos = [...new Set(esp)].sort();
+    unicos.forEach(e => {
+        const wrapper = document.createElement('label');
+        wrapper.className = 'checkbox-item';
+        wrapper.innerHTML = `<input type="checkbox" value="${e}" onchange="onEspecialidadesChange()"><span>${e}</span>`;
+        container.appendChild(wrapper);
     });
+}
+
+function onEspecialidadesChange() {
+    // Cargar productos en base a la selección actual
+    const tipoPrecio = document.querySelector('input[name="tipo_precio"]:checked')?.value;
+    const portafoliosSel = Array.from(document.querySelectorAll('#portafolios input[type="checkbox"]:checked')).map(i => i.value);
+    const gruposSel = Array.from(document.querySelectorAll('#grupos input[type="checkbox"]:checked')).map(i => i.value);
+    const esCount = document.getElementById('es-count');
+    if (esCount) esCount.textContent = `${Array.from(document.querySelectorAll('#especialidades input[type="checkbox"]:checked')).length} seleccionadas`;
+    if (tipoPrecio && portafoliosSel.length > 0 && gruposSel.length > 0) {
+        cargarProductos();
+    }
 }
 
 async function cargarProductos() {
     const tipoPrecio = document.querySelector('input[name="tipo_precio"]:checked')?.value;
-    const grupoSeleccionado = document.getElementById('grupo_articulo').value;
-    const portafolioSeleccionado = document.getElementById('portafolio').value;
+    const portafoliosSel = Array.from(document.querySelectorAll('#portafolios input[type="checkbox"]:checked')).map(i => i.value);
+    const gruposSel = Array.from(document.querySelectorAll('#grupos input[type="checkbox"]:checked')).map(i => i.value);
+    const especialidadesSel = Array.from(document.querySelectorAll('#especialidades input[type="checkbox"]:checked')).map(i => i.value);
     let nitCliente = '';
     if (tipoPrecio === 'especial') {
         nitCliente = document.getElementById('nit')?.value?.trim() || '';
     }
     
-    if (!tipoPrecio || !grupoSeleccionado || !portafolioSeleccionado || (tipoPrecio === 'especial' && !nitCliente)) {
-        showNotification('Selecciona el tipo de precio, grupo, portafolio y cliente', 'warning');
+    if (!tipoPrecio || portafoliosSel.length === 0 || gruposSel.length === 0 || (tipoPrecio === 'especial' && !nitCliente)) {
+        showNotification('Selecciona tipo de precio, al menos un portafolio y un grupo, y cliente si es especial', 'warning');
         return;
     }
     
     try {
         showLoading();
-        let url = '';
-        if (tipoPrecio === 'especial') {
-            url = `backend/productos.php?tipo=especial&grupo=${encodeURIComponent(grupoSeleccionado)}&portafolio=${encodeURIComponent(portafolioSeleccionado)}&nit=${encodeURIComponent(nitCliente)}`;
-        } else {
-            url = `backend/productos.php?tipo=full&grupo=${encodeURIComponent(grupoSeleccionado)}&portafolio=${encodeURIComponent(portafolioSeleccionado)}`;
-        }
+        const qs = new URLSearchParams();
+        qs.set('tipo', tipoPrecio === 'especial' ? 'especial' : 'full');
+        qs.set('portafolios', portafoliosSel.join(','));
+        qs.set('grupos', gruposSel.join(','));
+        if (especialidadesSel.length > 0) qs.set('especialidades', especialidadesSel.join(','));
+        if (tipoPrecio === 'especial') qs.set('nit', nitCliente);
+        const url = `backend/productos.php?${qs.toString()}`;
         const response = await fetch(url);
         const data = await response.json();
         if (data.success) {
@@ -437,6 +487,7 @@ async function generarPDF() {
                     id_articulo: producto.id_articulo || 'N/A',
                     descripcion: producto.descripcion || 'Sin descripción',
                     cantidad: cantidad,
+                    iva: (typeof producto.iva !== 'undefined' ? producto.iva : 0),
                     precio_unitario: producto.precio || '0',
                     precio_con_iva_unitario: producto.precio_con_iva || '0',
                     precio_total: precioTotal.toString(),
@@ -446,9 +497,10 @@ async function generarPDF() {
         });
         
         formData.append('productos', JSON.stringify(productosSeleccionados));
-        // Agregar portafolio y grupo_articulo al FormData
-        formData.append('portafolio', document.getElementById('portafolio').value);
-        formData.append('grupo_articulo', document.getElementById('grupo_articulo').value);
+        // Agregar filtros seleccionados al FormData (listas CSV)
+        formData.append('portafolios', Array.from(document.querySelectorAll('#portafolios input[type="checkbox"]:checked')).map(i => i.value).join(','));
+        formData.append('grupos', Array.from(document.querySelectorAll('#grupos input[type="checkbox"]:checked')).map(i => i.value).join(','));
+        formData.append('especialidades', Array.from(document.querySelectorAll('#especialidades input[type="checkbox"]:checked')).map(i => i.value).join(','));
         
         console.log('Enviando datos:', {
             cliente: formData.get('cliente'),

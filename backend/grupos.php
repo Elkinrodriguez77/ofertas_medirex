@@ -21,10 +21,12 @@ if (file_exists($archivo)) {
             if ($i == 1) continue; // Saltar encabezados
             $grupo = isset($fila['A']) ? trim($fila['A']) : '';
             $portafolio = isset($fila['B']) ? trim($fila['B']) : '';
+            $especialidad = isset($fila['C']) ? trim($fila['C']) : '';
             if ($grupo !== '' && $portafolio !== '') {
                 $grupos[] = [
                     'grupo' => $grupo,
-                    'portafolio' => $portafolio
+                    'portafolio' => $portafolio,
+                    'especialidad' => $especialidad
                 ];
             }
         }

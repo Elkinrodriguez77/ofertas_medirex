@@ -157,6 +157,65 @@ input, select {
     background: var(--medirex-white);
 }
 
+/* Checkbox lists in collapsible blocks */
+.checkbox-list {
+    border: 2px solid var(--medirex-border);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    max-height: 260px;
+    overflow-y: auto;
+    background: var(--medirex-white);
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.3rem;
+    cursor: pointer;
+}
+
+.checkbox-item input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--medirex-blue);
+}
+
+.filter-block {
+    border: 2px solid var(--medirex-border);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background: var(--medirex-white);
+}
+
+.filter-block summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 0.75rem 1rem;
+    background: #fafafa;
+    border-bottom: 1px solid var(--medirex-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+}
+
+.filter-block[open] summary {
+    background: #f0f4f9;
+}
+
+.filter-block summary::marker { display: none; }
+
+.filter-title {
+    color: var(--medirex-blue);
+}
+
+.filter-count {
+    color: var(--medirex-text);
+    font-weight: 500;
+    opacity: 0.8;
+}
+
 input:focus, select:focus {
     outline: none;
     border-color: var(--medirex-blue);

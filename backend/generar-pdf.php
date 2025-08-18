@@ -4,6 +4,11 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 
+// Asegurar autoload para PhpSpreadsheet y demás dependencias
+if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+}
+
 // Manejar preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
@@ -43,13 +48,7 @@ try {
         throw new Exception('Debe seleccionar al menos un producto');
     }
     
-    // Ruta a la plantilla PDF
-    $plantillaPDF = '../Recursos/Plantilla_pdf_2.pdf';
-    
-    if (!file_exists($plantillaPDF)) {
-        throw new Exception('Plantilla PDF no encontrada en: ' . $plantillaPDF);
-    }
-    
+    // Plantilla: usar HTML base del sistema con Montserrat como estándar
     // Crear directorio temporal si no existe
     $tempDir = 'temp';
     if (!is_dir($tempDir)) {
@@ -60,54 +59,15 @@ try {
     $filename = 'oferta_' . date('Y-m-d_H-i-s') . '_' . uniqid() . '.pdf';
     $filepath = $tempDir . '/' . $filename;
     
-    // Intentar usar FPDI, si falla usar HTML como fallback
-    $pdfGenerado = false;
-    
-    try {
-        // Verificar si FPDI está disponible
-        if (file_exists('../vendor/autoload.php')) {
-            require_once '../vendor/autoload.php';
-            
-            if (class_exists('setasign\Fpdi\Fpdi') && class_exists('FPDF')) {
-                // 1. Buscar la descripción del grupo y portafolio seleccionados en el Excel de categorías
-                function obtenerDescripcionGrupo($grupo, $portafolio) {
-                    $archivo = __DIR__ . '/../Recursos/Listado_Categorias_Y_Otros.xlsx';
-                    if (!file_exists($archivo)) return '';
-                    $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($archivo);
-                    $hoja = $spreadsheet->getActiveSheet();
-                    $rows = $hoja->toArray(null, true, true, true);
-                    foreach ($rows as $i => $fila) {
-                        if ($i == 1) continue; // Saltar encabezados
-                        $grupoFila = isset($fila['A']) ? trim($fila['A']) : '';
-                        $portafolioFila = isset($fila['B']) ? trim($fila['B']) : '';
-                        $descripcion = isset($fila['D']) ? trim($fila['D']) : '';
-                        if ($grupoFila === $grupo && $portafolioFila === $portafolio) {
-                            return $descripcion;
-                        }
-                    }
-                    return '';
-                }
-                // Justo antes de llamar a generarPDFConPlantilla:
-                $datos['portafolio'] = $_POST['portafolio'] ?? '';
-                $datos['grupo_articulo'] = $_POST['grupo_articulo'] ?? '';
-                $datos['descripcion_grupo_articulo'] = obtenerDescripcionGrupo($datos['grupo_articulo'], $datos['portafolio']);
-                // Generar PDF usando FPDI
-                generarPDFConPlantilla($plantillaPDF, $datos, $filepath);
-                $pdfGenerado = true;
-            }
-        }
-    } catch (Exception $e) {
-        error_log('Error con FPDI: ' . $e->getMessage());
-        $pdfGenerado = false;
-    }
-    
-    // Si FPDI falló, generar HTML como fallback
-    if (!$pdfGenerado) {
-        $html = generarHTMLOferta($datos);
-        $filename = 'oferta_' . date('Y-m-d_H-i-s') . '_' . uniqid() . '.html';
-        $filepath = $tempDir . '/' . $filename;
-        file_put_contents($filepath, $html);
-    }
+    // Generar HTML siempre (plantilla del sistema)
+    // Extra: adjuntar filtros seleccionados si vienen
+    $datos['portafolios'] = $_POST['portafolios'] ?? '';
+    $datos['grupos'] = $_POST['grupos'] ?? '';
+    $datos['especialidades'] = $_POST['especialidades'] ?? '';
+    $html = generarHTMLOferta($datos);
+    $filename = 'oferta_' . date('Y-m-d_H-i-s') . '_' . uniqid() . '.html';
+    $filepath = $tempDir . '/' . $filename;
+    file_put_contents($filepath, $html);
     
     // URL del archivo generado
     // Usar HTTPS si está disponible, sino HTTP
@@ -134,9 +94,9 @@ try {
     echo json_encode([
         'success' => true,
         'pdf_url' => $pdfUrl,
-        'message' => $pdfGenerado ? 'PDF generado exitosamente usando plantilla' : 'Oferta HTML generada (FPDI no disponible)',
+        'message' => 'Oferta generada exitosamente con plantilla del sistema',
         'datos_procesados' => $datos,
-        'tipo_archivo' => $pdfGenerado ? 'pdf' : 'html'
+        'tipo_archivo' => 'html'
     ]);
     
 } catch (Exception $e) {
@@ -390,8 +350,15 @@ function generarHTMLOferta($datos) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Oferta Medirex</title>
     <style>
+        @font-face {
+            font-family: "Montserrat";
+            font-style: normal;
+            font-weight: 400;
+            src: local("Montserrat"), local("Montserrat-Regular"), url("https://fonts.gstatic.com/s/montserrat/v25/JTUSjIg1_i6t8kCHKm459WRhyzbi.woff2") format("woff2");
+            unicode-range: U+000-5FF;
+        }
         body {
-            font-family: Montserrat, sans-serif;
+            font-family: "Montserrat", Arial, sans-serif;
             margin: 0;
             padding: 20px;
             background: white;
@@ -513,13 +480,63 @@ function generarHTMLOferta($datos) {
     </div>
     
     <div class="info-section">
+        <h2>Selección</h2>';
+    // Encabezados por selección y descripciones
+    $portSel = array_filter(array_map('trim', explode(',', $datos['portafolios'] ?? '')));
+    $gruSel = array_filter(array_map('trim', explode(',', $datos['grupos'] ?? '')));
+    $espSel = array_filter(array_map('trim', explode(',', $datos['especialidades'] ?? '')));
+
+    // Cargar descripciones por (grupo, portafolio) y especialidad
+    $descripciones = [];
+    try {
+        $archivo = __DIR__ . '/../Recursos/Listado_Categorias_Y_Otros.xlsx';
+        if (file_exists($archivo)) {
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($archivo);
+            $hoja = $spreadsheet->getActiveSheet();
+            $rows = $hoja->toArray(null, true, true, true);
+            foreach ($rows as $i => $fila) {
+                if ($i == 1) continue;
+                $g = isset($fila['A']) ? trim($fila['A']) : '';
+                $p = isset($fila['B']) ? trim($fila['B']) : '';
+                $e = isset($fila['C']) ? trim($fila['C']) : '';
+                $d = isset($fila['D']) ? trim($fila['D']) : '';
+                if ($g === '' || $p === '') continue;
+                if (!empty($portSel) && !in_array($p, $portSel, true)) continue;
+                if (!empty($gruSel) && !in_array($g, $gruSel, true)) continue;
+                if (!empty($espSel) && $e !== '' && !in_array($e, $espSel, true)) continue;
+                $descripciones[$p][$g][$e] = $d;
+            }
+        }
+    } catch (\Throwable $ex) {
+        // ignorar errores de descripción
+    }
+
+    foreach ($descripciones as $portafolio => $grupos) {
+        $html .= '<h1>' . htmlspecialchars($portafolio) . '</h1>';
+        foreach ($grupos as $grupo => $espMap) {
+            $html .= '<h2>' . htmlspecialchars($grupo) . '</h2>';
+            foreach ($espMap as $esp => $desc) {
+                if ($esp !== '') {
+                    $html .= '<h3>' . htmlspecialchars($esp) . '</h3>';
+                }
+                if (!empty($desc)) {
+                    $html .= '<p>' . nl2br(htmlspecialchars($desc)) . '</p>';
+                }
+            }
+        }
+    }
+
+    $html .= '
         <h2>Productos Cotizados</h2>
         <table class="productos-table">
             <thead>
                 <tr>
                     <th>ID Artículo</th>
                     <th>Descripción</th>
-                    <th>Cantidad</th>
+                    <th>Cant.</th>
+                    <th>Precio</th>
+                    <th>IVA</th>
+                    <th>Precio + IVA</th>
                 </tr>
             </thead>
             <tbody>';
@@ -529,7 +546,10 @@ function generarHTMLOferta($datos) {
                 <tr>
                     <td>' . htmlspecialchars($producto['id_articulo']) . '</td>
                     <td>' . htmlspecialchars($producto['descripcion']) . '</td>
-                    <td>' . htmlspecialchars($producto['cantidad']) . '</td>
+                    <td style="text-align:center;">' . htmlspecialchars($producto['cantidad']) . '</td>
+                    <td style="text-align:right;">$' . number_format(floatval(str_replace(',', '', $producto['precio_unitario'] ?? '0'))) . '</td>
+                    <td style="text-align:center;">' . (isset($producto['iva']) ? (is_numeric($producto['iva']) ? (intval(round(floatval($producto['iva']) * 100)) . '%') : htmlspecialchars($producto['iva'])) : '0%') . '</td>
+                    <td style="text-align:right;">$' . number_format(floatval(str_replace(',', '', $producto['precio_con_iva_unitario'] ?? '0'))) . '</td>
                 </tr>';
     }
     

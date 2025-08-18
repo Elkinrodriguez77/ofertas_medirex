@@ -155,17 +155,36 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="grupo_articulo">Grupo de Artículo *</label>
-                            <select id="grupo_articulo" name="grupo_articulo" required onchange="cargarPortafolio()">
-                                <option value="">Seleccionar grupo</option>
-                            </select>
+                            <details class="filter-block" id="pf-block" open>
+                                <summary>
+                                    <span class="filter-title">Portafolio(s) *</span>
+                                    <span class="filter-count" id="pf-count">0 seleccionados</span>
+                                </summary>
+                                <div id="portafolios" class="checkbox-list"></div>
+                            </details>
+                            <small>Selecciona uno o varios portafolios</small>
                         </div>
 
                         <div class="form-group">
-                            <label for="portafolio">Portafolio *</label>
-                            <select id="portafolio" name="portafolio" required onchange="cargarProductos()">
-                                <option value="">Seleccionar portafolio</option>
-                            </select>
+                            <details class="filter-block" id="gr-block">
+                                <summary>
+                                    <span class="filter-title">Grupo(s) de Artículo *</span>
+                                    <span class="filter-count" id="gr-count">0 seleccionados</span>
+                                </summary>
+                                <div id="grupos" class="checkbox-list"></div>
+                            </details>
+                            <small>Selecciona uno o varios grupos</small>
+                        </div>
+
+                        <div class="form-group">
+                            <details class="filter-block" id="es-block">
+                                <summary>
+                                    <span class="filter-title">Especialidad(es)</span>
+                                    <span class="filter-count" id="es-count">0 seleccionadas</span>
+                                </summary>
+                                <div id="especialidades" class="checkbox-list"></div>
+                            </details>
+                            <small>Opcional: selecciona una o varias especialidades</small>
                         </div>
 
                         <div class="form-group">
