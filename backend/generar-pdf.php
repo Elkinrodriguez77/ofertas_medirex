@@ -580,7 +580,7 @@ function generarHTMLOferta($datos) {
         body {
             font-family: "Montserrat", Arial, sans-serif;
             margin: 0;
-            padding: 20px;
+            padding: 8px;
             background: white;
         }
         .header {
@@ -654,6 +654,13 @@ function generarHTMLOferta($datos) {
             margin: 12px 0 20px;
             background: #fff;
         }
+        .page-frame {
+            border: none;
+            border-radius: 0;
+            padding: 6px 8px;
+            background: #ffffff;
+            width: 100%;
+        }
         .footer {
             margin-top: 40px;
             text-align: center;
@@ -670,9 +677,13 @@ function generarHTMLOferta($datos) {
             margin-top: 50px;
             display: inline-block;
         }
+        @page { size: A4; margin: 6mm; }
         @media print {
-            body { margin: 0; }
+            body { margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .header { page-break-after: avoid; }
+            .productos-table th { background-color: #1B365D !important; color: #ffffff !important; }
+            .card { box-shadow: none; border: 1px solid #ddd; }
+            .page-frame { border: none; padding: 4px 6px; }
         }
         .print-bar {
             position: sticky;
@@ -698,6 +709,7 @@ function generarHTMLOferta($datos) {
     </style>
 </head>
 <body>
+    <div class="page-frame">
     <div class="print-bar">
         <button class="btn-print" onclick="window.print()">Imprimir / Guardar PDF</button>
     </div>
@@ -837,6 +849,7 @@ function generarHTMLOferta($datos) {
         <div class="firma-line"></div>
         <p><strong>' . htmlspecialchars($datos['firma_gerente']) . '</strong><br>
         ' . $datos['cargo'] . '</p>
+    </div>
     </div>
 </body>
 </html>';
