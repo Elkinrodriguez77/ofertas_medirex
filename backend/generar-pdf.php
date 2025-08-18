@@ -55,21 +55,241 @@ try {
         mkdir($tempDir, 0777, true);
     }
     
-    // Generar nombre único para el archivo
-    $filename = 'oferta_' . date('Y-m-d_H-i-s') . '_' . uniqid() . '.pdf';
+    // Generar nombre único para el archivo HTML
+    $filename = 'oferta_' . date('Y-m-d_H-i-s') . '_' . uniqid() . '.html';
     $filepath = $tempDir . '/' . $filename;
-    
-    // Generar HTML siempre (plantilla del sistema)
-    // Extra: adjuntar filtros seleccionados si vienen
+    // Adjuntar filtros al payload de render
     $datos['portafolios'] = $_POST['portafolios'] ?? '';
     $datos['grupos'] = $_POST['grupos'] ?? '';
     $datos['especialidades'] = $_POST['especialidades'] ?? '';
+    // Render y escribir el archivo HTML
     $html = generarHTMLOferta($datos);
-    $filename = 'oferta_' . date('Y-m-d_H-i-s') . '_' . uniqid() . '.html';
-    $filepath = $tempDir . '/' . $filename;
     file_put_contents($filepath, $html);
     
-    // URL del archivo generado
+    // Preparar datos de filtros
+    $datos['portafolios'] = $_POST['portafolios'] ?? '';
+    $datos['grupos'] = $_POST['grupos'] ?? '';
+    $datos['especialidades'] = $_POST['especialidades'] ?? '';
+
+    // Helpers
+    $toArray = function($csv) {
+        return array_values(array_filter(array_map('trim', explode(',', (string)$csv)), fn($v) => $v !== ''));
+    };
+    $portSel = $toArray($datos['portafolios']);
+    $gruSel = $toArray($datos['grupos']);
+    $espSel = $toArray($datos['especialidades']);
+
+    // Descargar logo (Dropbox: forzar descarga directa con dl=1)
+    function descargarLogoMedirex($urlOriginal, $destPath) {
+        try {
+            if (empty($urlOriginal)) return false;
+            $url = preg_replace('/[?&]dl=0/', '', $urlOriginal);
+            $url .= (strpos($url, '?') !== false ? '&' : '?') . 'dl=1';
+            $bin = @file_get_contents($url);
+            if ($bin === false) return false;
+            file_put_contents($destPath, $bin);
+            return file_exists($destPath);
+        } catch (\Throwable $t) {
+            return false;
+        }
+    }
+
+    // Obtener descripciones por selección
+    function obtenerDescripcionesSeleccion($portSel, $gruSel, $espSel) {
+        $descripciones = [];
+        try {
+                    $archivo = __DIR__ . '/../Recursos/Listado_Categorias_Y_Otros.xlsx';
+            if (file_exists($archivo)) {
+                    $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($archivo);
+                    $hoja = $spreadsheet->getActiveSheet();
+                    $rows = $hoja->toArray(null, true, true, true);
+                    foreach ($rows as $i => $fila) {
+                    if ($i == 1) continue;
+                    $g = isset($fila['A']) ? trim($fila['A']) : '';
+                    $p = isset($fila['B']) ? trim($fila['B']) : '';
+                    $e = isset($fila['C']) ? trim($fila['C']) : '';
+                    $d = isset($fila['D']) ? trim($fila['D']) : '';
+                    if ($g === '' || $p === '') continue;
+                    if (!empty($portSel) && !in_array($p, $portSel, true)) continue;
+                    if (!empty($gruSel) && !in_array($g, $gruSel, true)) continue;
+                    if (!empty($espSel) && $e !== '' && !in_array($e, $espSel, true)) continue;
+                    $descripciones[$p][$g][$e] = $d;
+                }
+            }
+        } catch (\Throwable $ex) {
+            // ignorar errores
+        }
+        return $descripciones;
+    }
+
+    // Construir PDF con FPDF
+    if (false && class_exists('FPDF')) {
+        $pdf = new \FPDF('P', 'mm', 'A4');
+        $pdf->SetAutoPageBreak(true, 15);
+        $pdf->AddPage();
+        $marginLeft = 10; $contentWidth = 190 - $marginLeft;
+
+        // Logo (omitido si falla)
+        try {
+            $logoPath = $tempDir . '/logo_medirex.png';
+            $logoUrl = $_POST['logo_url'] ?? '';
+            if ($logoUrl && !file_exists($logoPath)) {
+                descargarLogoMedirex($logoUrl, $logoPath);
+            }
+            if ($logoUrl && file_exists($logoPath)) {
+                // Validar que sea PNG/JPEG
+                $info = @getimagesize($logoPath);
+                if ($info && in_array($info[2], [IMAGETYPE_PNG, IMAGETYPE_JPEG], true)) {
+                    $pdf->Image($logoPath, 10, 8, 38);
+                }
+            }
+        } catch (\Throwable $t) { /* omitir logo */ }
+
+        // Título
+        $pdf->SetFont('Arial','B',14);
+        $pdf->SetXY(10, 12);
+        $pdf->Cell(0, 10, utf8_decode('Generador de Ofertas - MEDIREX'), 0, 1, 'R');
+        $pdf->SetFont('Arial','',10);
+        $pdf->Cell(0, 6, utf8_decode('Fecha de Presentación: ' . ($datos['fecha_presentacion'] ?? '')), 0, 1, 'R');
+        $pdf->Ln(2);
+
+        // Información del Cliente
+        $pdf->SetFont('Arial','B',12);
+        $pdf->Cell(0, 8, utf8_decode('Información del Cliente'), 0, 1, 'L');
+        $pdf->SetFont('Arial','',10);
+        $info = [
+            ['Cliente', $datos['cliente'] ?? ''],
+            ['NIT', $datos['nit'] ?? ''],
+            ['Dirigido a', $datos['dirigido_a'] ?? ''],
+            ['Cargo', $datos['contacto_cargo'] ?? ''],
+            ['Ciudad', $datos['ciudad'] ?? ''],
+            ['Territorio', $datos['territorio'] ?? ''],
+            ['Vigencia', $datos['fecha_vigencia'] ?? '']
+        ];
+        foreach ($info as [$label, $value]) {
+            $pdf->SetFont('Arial','B',10);
+            $pdf->Cell(35, 6, utf8_decode($label . ':'), 0, 0, 'L');
+            $pdf->SetFont('Arial','',10);
+            $pdf->Cell(0, 6, utf8_decode((string)$value), 0, 1, 'L');
+        }
+        $pdf->Ln(3);
+
+        // Texto corporativo (según imagen provista)
+        $pdf->SetFont('Arial','',11);
+        $corporativo = "Cordial Saludo,\n\n".
+        "Medirex BIC S.A.S. es una empresa innovadora dedicada a la comercialización de dispositivos médicos, con un firme compromiso en mejorar el don de la vida. Nos especializamos en soluciones avanzadas para neurocirugía, ortopedia y otras especialidades médicas. Nuestra misión es proporcionar productos de alta calidad, cumpliendo con los más estrictos estándares de la industria, respaldados por un equipo de profesionales altamente capacitados y dedicados a la excelencia en el servicio.\n\n".
+        "Con el firme propósito de apoyar su misión y fortalecer una relación comercial a largo plazo, hemos preparado una propuesta que incluye un descuento preferencial sobre cada referencia de nuestros productos.";
+        $pdf->MultiCell(0, 6, utf8_decode($corporativo));
+        $pdf->Ln(2);
+
+        // Tabla de descuentos
+        $pdf->SetFont('Arial','B',10);
+        $pdf->SetFillColor(27,54,93); // azul
+        $pdf->SetTextColor(255,255,255);
+        $pdf->Cell(40, 8, utf8_decode('DESCUENTO'), 1, 0, 'C', true);
+        $pdf->Cell(40, 8, utf8_decode('PLAZO'), 1, 1, 'C', true);
+        $pdf->SetTextColor(0,0,0);
+        $pdf->SetFont('Arial','',10);
+        $pdf->Cell(40, 8, '5%', 1, 0, 'C');
+        $pdf->Cell(40, 8, utf8_decode('30 días'), 1, 1, 'C');
+        $pdf->Cell(40, 8, '3%', 1, 0, 'C');
+        $pdf->Cell(40, 8, utf8_decode('60 días'), 1, 1, 'C');
+        $pdf->Ln(3);
+
+        $pdf->SetFont('Arial','',11);
+        $parrafo2 = "Confiamos en que nuestros productos no solo continuarán mejorando la vida de los pacientes, sino que también superarán las expectativas de calidad de nuestros clientes. Nuestro compromiso incluye:";
+        $pdf->MultiCell(0, 6, utf8_decode($parrafo2));
+        $pdf->Ln(1);
+        $bullets = [
+            'Asesoría Comercial Personalizada',
+            'Acompañamiento Quirúrgico Integral para productos de especial preparación',
+            'Capacitaciones Continuas'
+        ];
+        foreach ($bullets as $b) {
+            $pdf->Cell(5, 6, chr(149), 0, 0, 'L');
+            $pdf->Cell(0, 6, utf8_decode($b), 0, 1, 'L');
+        }
+        $pdf->Ln(1);
+        $cierre = "Esperamos que esta propuesta sea satisfactoria para su institución y quedamos atentos a sus comentarios para avanzar hacia una negociación efectiva y beneficiosa.";
+        $pdf->MultiCell(0, 6, utf8_decode($cierre));
+        $pdf->Ln(4);
+
+        // Secciones por selección (sin el título 'Selección')
+        $descripciones = obtenerDescripcionesSeleccion($portSel, $gruSel, $espSel);
+        foreach ($descripciones as $portafolio => $grupos) {
+            $pdf->SetFont('Arial','B',14); // H1
+            $pdf->Cell(0, 8, utf8_decode($portafolio), 0, 1, 'L');
+            foreach ($grupos as $grupo => $espMap) {
+                $pdf->SetFont('Arial','B',12); // H2
+                $pdf->Cell(0, 7, utf8_decode($grupo), 0, 1, 'L');
+                foreach ($espMap as $esp => $desc) {
+                    if ($esp !== '') {
+                        $pdf->SetFont('Arial','B',11); // H3
+                        $pdf->Cell(0, 6, utf8_decode($esp), 0, 1, 'L');
+                    }
+                    if (!empty($desc)) {
+                        $pdf->SetFont('Arial','',10);
+                        $pdf->MultiCell(0, 5.5, utf8_decode($desc));
+                    }
+                    $pdf->Ln(1);
+                }
+                $pdf->Ln(1);
+            }
+            $pdf->Ln(2);
+        }
+
+        // Tabla de productos
+        $pdf->SetFont('Arial','B',11);
+        $pdf->Cell(0, 8, utf8_decode('Productos Cotizados'), 0, 1, 'L');
+        $pdf->SetFont('Arial','B',9);
+        $pdf->SetFillColor(27,54,93);
+        $pdf->SetTextColor(255,255,255);
+        $pdf->Cell(25, 7, utf8_decode('ID'), 1, 0, 'C', true);
+        $pdf->Cell(80, 7, utf8_decode('Descripción'), 1, 0, 'C', true);
+        $pdf->Cell(20, 7, utf8_decode('Cant.'), 1, 0, 'C', true);
+        $pdf->Cell(25, 7, utf8_decode('Precio'), 1, 0, 'C', true);
+        $pdf->Cell(15, 7, utf8_decode('IVA'), 1, 0, 'C', true);
+        $pdf->Cell(25, 7, utf8_decode('Precio+IVA'), 1, 1, 'C', true);
+        $pdf->SetTextColor(0,0,0);
+        $pdf->SetFont('Arial','',8.5);
+        foreach ($datos['productos'] as $producto) {
+            $id = $producto['id_articulo'] ?? 'N/A';
+            $desc = $producto['descripcion'] ?? '';
+            $cant = $producto['cantidad'] ?? '1';
+            $pu = str_replace(',', '', $producto['precio_unitario'] ?? ($producto['precio'] ?? '0'));
+            $piva = str_replace(',', '', $producto['precio_con_iva_unitario'] ?? ($producto['precio_con_iva'] ?? '0'));
+            $iva = $producto['iva'] ?? 0;
+            if (is_numeric($iva)) { $iva = intval(round(floatval($iva) * 100)) . '%'; }
+            $pdf->Cell(25, 7, utf8_decode($id), 1, 0, 'C');
+            // Descripción con recorte
+            $maxDesc = 45;
+            $descCorto = mb_substr($desc, 0, $maxDesc);
+            $pdf->Cell(80, 7, utf8_decode($descCorto), 1, 0, 'L');
+            $pdf->Cell(20, 7, utf8_decode((string)$cant), 1, 0, 'C');
+            $pdf->Cell(25, 7, '$' . number_format(floatval($pu)), 1, 0, 'R');
+            $pdf->Cell(15, 7, utf8_decode($iva), 1, 0, 'C');
+            $pdf->Cell(25, 7, '$' . number_format(floatval($piva)), 1, 1, 'R');
+        }
+
+        // Firma
+        $pdf->Ln(10);
+        $pdf->SetFont('Arial','',10);
+        $pdf->Cell(0, 6, utf8_decode('Atentamente,'), 0, 1, 'L');
+        $pdf->Ln(12);
+        $pdf->SetFont('Arial','B',10);
+        $pdf->Cell(0, 6, utf8_decode(($datos['firma_gerente'] ?? '')), 0, 1, 'L');
+        $pdf->SetFont('Arial','',10);
+        $pdf->Cell(0, 6, utf8_decode(($datos['cargo'] ?? '')), 0, 1, 'L');
+
+        // Guardar
+        $pdf->Output('F', $filepath);
+    } else {
+        // Si no está disponible FPDF o preferimos HTML, generamos HTML más arriba
+        // No lanzamos excepción para mantener salida HTML
+        // throw new Exception('Biblioteca FPDF no disponible en el servidor.');
+    }
+    
+    // URL del archivo generado (HTML)
     // Usar HTTPS si está disponible, sino HTTP
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'];
@@ -94,7 +314,7 @@ try {
     echo json_encode([
         'success' => true,
         'pdf_url' => $pdfUrl,
-        'message' => 'Oferta generada exitosamente con plantilla del sistema',
+        'message' => 'Oferta HTML generada',
         'datos_procesados' => $datos,
         'tipo_archivo' => 'html'
     ]);
@@ -440,9 +660,33 @@ function generarHTMLOferta($datos) {
             body { margin: 0; }
             .header { page-break-after: avoid; }
         }
+        .print-bar {
+            position: sticky;
+            top: 0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            background: #fff;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .btn-print {
+            background: #1B365D;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 14px;
+            cursor: pointer;
+        }
+        @media print {
+            .print-bar { display: none; }
+        }
     </style>
 </head>
 <body>
+    <div class="print-bar">
+        <button class="btn-print" onclick="window.print()">Imprimir / Guardar PDF</button>
+    </div>
     <div class="header">
         <h1>MEDIREX - SOLUCIONES MÉDICAS INNOVADORAS</h1>
         <p>Generador de Ofertas</p>
