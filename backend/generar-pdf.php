@@ -780,63 +780,65 @@ function generarHTMLOferta($datos) {
         // ignorar errores de descripción
     }
 
-    // Agrupar productos por Portafolio > Grupo
+    // Agrupar productos por Portafolio > Grupo > Especialidad
     $productos = $datos['productos'] ?? [];
     $agrupados = [];
     foreach ($productos as $p) {
         $pf = $p['portafolio'] ?? 'Otros';
         $gr = $p['grupo'] ?? 'Sin grupo';
+        $es = $p['especialidad'] ?? '';
         if (!isset($agrupados[$pf])) $agrupados[$pf] = [];
         if (!isset($agrupados[$pf][$gr])) $agrupados[$pf][$gr] = [];
-        $agrupados[$pf][$gr][] = $p;
+        if (!isset($agrupados[$pf][$gr][$es])) $agrupados[$pf][$gr][$es] = [];
+        $agrupados[$pf][$gr][$es][] = $p;
     }
 
-    foreach ($descripciones as $portafolio => $grupos) {
+    // Recorrer lo que realmente hay en productos para garantizar separación por especialidad
+    foreach ($agrupados as $portafolio => $gruposProd) {
         $html .= '<div class="card">' . '<h1>' . htmlspecialchars($portafolio) . '</h1>';
-        foreach ($grupos as $grupo => $espMap) {
+        foreach ($gruposProd as $grupo => $espMapProd) {
             $html .= '<h2>' . htmlspecialchars($grupo) . '</h2>';
-            foreach ($espMap as $esp => $desc) {
+            foreach ($espMapProd as $esp => $filas) {
+                $desc = $descripciones[$portafolio][$grupo][$esp] ?? '';
                 if ($esp !== '') {
                     $html .= '<h3>' . htmlspecialchars($esp) . '</h3>';
                 }
                 if (!empty($desc)) {
                     $html .= '<p>' . nl2br(htmlspecialchars($desc)) . '</p>';
                 }
+                $html .= '<table class="productos-table"><thead><tr>'
+                    . '<th>ID Artículo</th><th>Descripción</th><th>Cant.</th><th>Precio</th><th>IVA</th><th>Precio + IVA</th>'
+                    . '</tr></thead><tbody>';
+                $sumCant = 0; $sumTotal = 0.0; $sumTotalIva = 0.0;
+                foreach ($filas as $prod) {
+                    $cant = intval($prod['cantidad'] ?? 1);
+                    $pu = floatval(str_replace(',', '', $prod['precio_unitario'] ?? ($prod['precio'] ?? '0')));
+                    $pui = floatval(str_replace(',', '', $prod['precio_con_iva_unitario'] ?? ($prod['precio_con_iva'] ?? '0')));
+                    $pt = isset($prod['precio_total']) ? floatval(str_replace(',', '', $prod['precio_total'])) : ($pu * $cant);
+                    $pti = isset($prod['precio_con_iva_total']) ? floatval(str_replace(',', '', $prod['precio_con_iva_total'])) : ($pui * $cant);
+                    $sumCant += $cant; $sumTotal += $pt; $sumTotalIva += $pti;
+                    $html .= '<tr>'
+                        . '<td>' . htmlspecialchars($prod['id_articulo'] ?? '') . '</td>'
+                        . '<td>' . htmlspecialchars($prod['descripcion'] ?? '') . '</td>'
+                        . '<td style="text-align:center;">' . $cant . '</td>'
+                        . '<td style="text-align:right;">$' . number_format($pu) . '</td>'
+                        . '<td style="text-align:center;">' . (isset($prod['iva']) ? (is_numeric($prod['iva']) ? (intval(round(floatval($prod['iva']) * 100)) . '%') : htmlspecialchars($prod['iva'])) : '0%') . '</td>'
+                        . '<td style="text-align:right;">$' . number_format($pui) . '</td>'
+                    . '</tr>';
+                }
+                if (empty($filas)) {
+                    $html .= '<tr><td colspan="6" style="text-align:center;color:#666;">No hay productos para esta selección</td></tr>';
+                } else {
+                    $html .= '<tr class="totals-row" style="font-weight:600;background:#f3f6fb;">'
+                        . '<td colspan="2">Totales</td>'
+                        . '<td style="text-align:center;">' . $sumCant . '</td>'
+                        . '<td style="text-align:right;">$' . number_format($sumTotal) . '</td>'
+                        . '<td></td>'
+                        . '<td style="text-align:right;">$' . number_format($sumTotalIva) . '</td>'
+                    . '</tr>';
+                }
+                $html .= '</tbody></table>';
             }
-            // Tabla específica para esta combinación Portafolio-Grupo
-            $html .= '<table class="productos-table"><thead><tr>'
-                . '<th>ID Artículo</th><th>Descripción</th><th>Cant.</th><th>Precio</th><th>IVA</th><th>Precio + IVA</th>'
-                . '</tr></thead><tbody>';
-            $filas = $agrupados[$portafolio][$grupo] ?? [];
-            $sumCant = 0; $sumTotal = 0.0; $sumTotalIva = 0.0;
-            foreach ($filas as $prod) {
-                $cant = intval($prod['cantidad'] ?? 1);
-                $pu = floatval(str_replace(',', '', $prod['precio_unitario'] ?? ($prod['precio'] ?? '0')));
-                $pui = floatval(str_replace(',', '', $prod['precio_con_iva_unitario'] ?? ($prod['precio_con_iva'] ?? '0')));
-                $pt = isset($prod['precio_total']) ? floatval(str_replace(',', '', $prod['precio_total'])) : ($pu * $cant);
-                $pti = isset($prod['precio_con_iva_total']) ? floatval(str_replace(',', '', $prod['precio_con_iva_total'])) : ($pui * $cant);
-                $sumCant += $cant; $sumTotal += $pt; $sumTotalIva += $pti;
-                $html .= '<tr>'
-                    . '<td>' . htmlspecialchars($prod['id_articulo'] ?? '') . '</td>'
-                    . '<td>' . htmlspecialchars($prod['descripcion'] ?? '') . '</td>'
-                    . '<td style="text-align:center;">' . $cant . '</td>'
-                    . '<td style="text-align:right;">$' . number_format($pu) . '</td>'
-                    . '<td style="text-align:center;">' . (isset($prod['iva']) ? (is_numeric($prod['iva']) ? (intval(round(floatval($prod['iva']) * 100)) . '%') : htmlspecialchars($prod['iva'])) : '0%') . '</td>'
-                    . '<td style="text-align:right;">$' . number_format($pui) . '</td>'
-                . '</tr>';
-            }
-            if (empty($filas)) {
-                $html .= '<tr><td colspan="6" style="text-align:center;color:#666;">No hay productos para esta selección</td></tr>';
-            } else {
-                $html .= '<tr class="totals-row" style="font-weight:600;background:#f3f6fb;">'
-                    . '<td colspan="2">Totales</td>'
-                    . '<td style="text-align:center;">' . $sumCant . '</td>'
-                    . '<td style="text-align:right;">$' . number_format($sumTotal) . '</td>'
-                    . '<td></td>'
-                    . '<td style="text-align:right;">$' . number_format($sumTotalIva) . '</td>'
-                . '</tr>';
-            }
-            $html .= '</tbody></table>';
         }
         $html .= '</div>';
     }

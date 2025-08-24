@@ -152,8 +152,10 @@ if ($tipo === 'especial') {
                 if ($i == 1) continue; // Saltar encabezados
                 $grupoFila = isset($fila['E']) ? trim($fila['E']) : '';
                 $portafolioFila = isset($fila['G']) ? trim($fila['G']) : '';
+                $especialidadFila = isset($fila['H']) ? trim($fila['H']) : '';
                 $clave = $grupoFila . '||' . $portafolioFila;
-                if (isset($paresValidos[$clave])) {
+                // Si el usuario seleccionó especialidades, filtrar también por esa columna
+                if (isset($paresValidos[$clave]) && (empty($selectedEspecialidades) || ($especialidadFila !== '' && in_array($especialidadFila, $selectedEspecialidades, true)))) {
                     $precioBase = isset($fila['D']) ? floatval($fila['D']) : 0;
                     $iva = isset($fila['F']) ? floatval($fila['F']) : 0;
                     $precioConIva = $precioBase;
@@ -167,7 +169,8 @@ if ($tipo === 'especial') {
                         'precio_con_iva' => number_format($precioConIva, 0, '.', ','),
                         'iva' => $iva,
                         'grupo' => $grupoFila,
-                        'portafolio' => $portafolioFila
+                        'portafolio' => $portafolioFila,
+                        'especialidad' => $especialidadFila
                     ];
                 }
             }
