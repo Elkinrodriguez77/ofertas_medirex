@@ -749,8 +749,7 @@ function generarHTMLOferta($datos) {
         </div>
     </div>
     
-    <div class="info-section">
-        <h2>Selección</h2>';
+    <div class="info-section">';
     // Encabezados por selección y descripciones
     $portSel = array_filter(array_map('trim', explode(',', $datos['portafolios'] ?? '')));
     $gruSel = array_filter(array_map('trim', explode(',', $datos['grupos'] ?? '')));
