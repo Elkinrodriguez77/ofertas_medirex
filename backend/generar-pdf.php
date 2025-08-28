@@ -749,6 +749,18 @@ function generarHTMLOferta($datos) {
         </div>
     </div>
     
+    <div class="info-section">
+        <p><strong>Cordial Saludo,</strong></p>
+        <p>Medirex BIC S.A.S. es una empresa innovadora dedicada a la comercialización de dispositivos médicos, con un firme compromiso en mejorar el don de la vida. Nos especializamos en soluciones avanzadas para neurocirugía, ortopedia y otras especialidades médicas. Nuestra misión es proporcionar productos de alta calidad, cumpliendo con los más estrictos estándares de la industria, respaldados por un equipo de profesionales altamente capacitados y dedicados a la excelencia en el servicio.</p>
+        <p>Confiamos en que nuestros productos no solo continuarán mejorando la vida de los pacientes, sino que también superarán las expectativas de calidad de nuestros clientes. Nuestro compromiso incluye:</p>
+        <ul>
+            <li>Asesoría Comercial Personalizada</li>
+            <li>Acompañamiento Quirúrgico Integral</li>
+            <li>Capacitaciones Continuas</li>
+        </ul>
+        <p>Esperamos que esta propuesta sea satisfactoria para su institución y quedamos atentos a sus comentarios para avanzar hacia una negociación efectiva y beneficiosa.</p>
+    </div>
+    
     <div class="info-section">';
     // Encabezados por selección y descripciones
     $portSel = array_filter(array_map('trim', explode(',', $datos['portafolios'] ?? '')));
