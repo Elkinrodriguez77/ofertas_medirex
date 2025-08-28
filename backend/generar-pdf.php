@@ -622,6 +622,10 @@ function generarHTMLOferta($datos) {
         .info-value {
             color: #333;
         }
+        /* Justificar texto general sin afectar tablas ni encabezado */
+        p { text-align: justify; text-justify: inter-word; }
+        li { text-align: justify; text-justify: inter-word; }
+        .header p { text-align: center; }
         .productos-table {
             width: 100%;
             border-collapse: collapse;
