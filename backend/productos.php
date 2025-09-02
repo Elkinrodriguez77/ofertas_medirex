@@ -100,18 +100,25 @@ if ($tipo === 'especial') {
                 if ($i == 1) continue; // Saltar encabezados
                 $grupoFila = isset($fila['I']) ? trim($fila['I']) : '';
                 $portafolioFila = isset($fila['G']) ? trim($fila['G']) : '';
+                $especialidadFila = isset($fila['H']) ? trim($fila['H']) : '';
                 $nitFila = isset($fila['J']) ? normalizar_nit($fila['J']) : '';
                 $clave = $grupoFila . '||' . $portafolioFila;
                 if (isset($paresValidos[$clave]) && $nitFila === $nit_normalizado) {
                     $precio = isset($fila['F']) ? floatval($fila['F']) : 0;
+                    $iva = isset($fila['K']) ? floatval($fila['K']) : 0; // IVA columna K
+                    $precioConIva = $precio;
+                    if ($iva > 0) {
+                        $precioConIva = ($precio * $iva) + $precio;
+                    }
                     $productos[] = [
                         'id_articulo' => isset($fila['C']) ? trim($fila['C']) : '',
                         'descripcion' => isset($fila['D']) ? trim($fila['D']) : '',
                         'precio' => number_format($precio, 0, '.', ','),
-                        'precio_con_iva' => number_format($precio, 0, '.', ','),
-                        'iva' => 0,
+                        'precio_con_iva' => number_format($precioConIva, 0, '.', ','),
+                        'iva' => $iva,
                         'grupo' => $grupoFila,
-                        'portafolio' => $portafolioFila
+                        'portafolio' => $portafolioFila,
+                        'especialidad' => $especialidadFila
                     ];
                 }
             }
